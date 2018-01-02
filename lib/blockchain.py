@@ -27,15 +27,16 @@ from . import util
 from . import bitcoin
 from .bitcoin import *
 
-MAX_TARGET = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+MAX_TARGET = 0x7FFFF00000000000000000000000000000000000000000000000000000000000
 
 def serialize_header(res):
     s = int_to_hex(res.get('version'), 4) \
         + rev_hex(res.get('prev_block_hash')) \
         + rev_hex(res.get('merkle_root')) \
+		+ int_to_hex(0, 32) \
         + int_to_hex(int(res.get('timestamp')), 4) \
         + int_to_hex(int(res.get('bits')), 4) \
-        + int_to_hex(int(res.get('nonce')), 4)
+        + int_to_hex(int(res.get('nonce')), 32)
     return s
 
 def deserialize_header(s, height):
@@ -44,9 +45,9 @@ def deserialize_header(s, height):
     h['version'] = hex_to_int(s[0:4])
     h['prev_block_hash'] = hash_encode(s[4:36])
     h['merkle_root'] = hash_encode(s[36:68])
-    h['timestamp'] = hex_to_int(s[68:72])
-    h['bits'] = hex_to_int(s[72:76])
-    h['nonce'] = hex_to_int(s[76:80])
+    h['timestamp'] = hex_to_int(s[100:104])
+    h['bits'] = hex_to_int(s[104:108])
+    h['nonce'] = hex_to_int(s[108:140])
     h['block_height'] = height
     return h
 
@@ -146,7 +147,7 @@ class Blockchain(util.PrintError):
 
     def update_size(self):
         p = self.path()
-        self._size = os.path.getsize(p)//80 if os.path.exists(p) else 0
+        self._size = os.path.getsize(p)//140 if os.path.exists(p) else 0
 
     def verify_header(self, header, prev_hash, target):
         _hash = hash_header(header)
@@ -161,11 +162,11 @@ class Blockchain(util.PrintError):
             raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
-        num = len(data) // 80
+        num = len(data) // 140
         prev_hash = self.get_hash(index * 2016 - 1)
         target = self.get_target(index-1)
         for i in range(num):
-            raw_header = data[i*80:(i+1) * 80]
+            raw_header = data[i*140:(i+1) * 140]
             header = deserialize_header(raw_header, index*2016 + i)
             self.verify_header(header, prev_hash, target)
             prev_hash = hash_header(header)
@@ -177,7 +178,7 @@ class Blockchain(util.PrintError):
 
     def save_chunk(self, index, chunk):
         filename = self.path()
-        d = (index * 2016 - self.checkpoint) * 80
+        d = (index * 2016 - self.checkpoint) * 140
         if d < 0:
             chunk = chunk[-d:]
             d = 0
@@ -197,10 +198,10 @@ class Blockchain(util.PrintError):
         with open(self.path(), 'rb') as f:
             my_data = f.read()
         with open(parent.path(), 'rb') as f:
-            f.seek((checkpoint - parent.checkpoint)*80)
-            parent_data = f.read(parent_branch_size*80)
+            f.seek((checkpoint - parent.checkpoint)*140)
+            parent_data = f.read(parent_branch_size*140)
         self.write(parent_data, 0)
-        parent.write(my_data, (checkpoint - parent.checkpoint)*80)
+        parent.write(my_data, (checkpoint - parent.checkpoint)*140)
         # store file path
         for b in blockchains.values():
             b.old_path = b.path()
@@ -222,7 +223,7 @@ class Blockchain(util.PrintError):
         filename = self.path()
         with self.lock:
             with open(filename, 'rb+') as f:
-                if offset != self._size*80:
+                if offset != self._size*140:
                     f.seek(offset)
                     f.truncate()
                 f.seek(offset)
@@ -235,8 +236,8 @@ class Blockchain(util.PrintError):
         delta = header.get('block_height') - self.checkpoint
         data = bfh(serialize_header(header))
         assert delta == self.size()
-        assert len(data) == 80
-        self.write(data, delta*80)
+        assert len(data) == 140
+        self.write(data, delta*140)
         self.swap_with_parent()
 
     def read_header(self, height):
@@ -251,9 +252,9 @@ class Blockchain(util.PrintError):
         name = self.path()
         if os.path.exists(name):
             with open(name, 'rb') as f:
-                f.seek(delta * 80)
-                h = f.read(80)
-        if h == bytes([0])*80:
+                f.seek(delta * 140)
+                h = f.read(140)
+        if h == bytes([0])*140:
             return None
         return deserialize_header(h, height)
 
