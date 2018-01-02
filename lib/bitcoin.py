@@ -75,10 +75,10 @@ class NetworkConstants:
     def set_mainnet(cls):
         cls.TESTNET = False
         cls.WIF_PREFIX = 0x80
-        cls.ADDRTYPE_P2PKH = 0
+        cls.ADDRTYPE_P2PKH = 75
         cls.ADDRTYPE_P2SH = 5
         cls.SEGWIT_HRP = "bc"
-        cls.GENESIS = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+        cls.GENESIS = "490a36d9451a55ed197e34aca7414b35d775baa4a8e896f1c577f65ce2d214cb"
         cls.DEFAULT_PORTS = {'t': '50001', 's': '50002'}
         cls.DEFAULT_SERVERS = read_json('servers.json', {})
         cls.CHECKPOINTS = read_json('checkpoints.json', [])
@@ -90,7 +90,7 @@ class NetworkConstants:
         cls.ADDRTYPE_P2PKH = 111
         cls.ADDRTYPE_P2SH = 196
         cls.SEGWIT_HRP = "tb"
-        cls.GENESIS = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
+        cls.GENESIS = "490a36d9451a55ed197e34aca7414b35d775baa4a8e896f1c577f65ce2d214cb"
         cls.DEFAULT_PORTS = {'t':'51001', 's':'51002'}
         cls.DEFAULT_SERVERS = read_json('servers_testnet.json', {})
         cls.CHECKPOINTS = read_json('checkpoints_testnet.json', [])
