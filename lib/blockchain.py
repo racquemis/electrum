@@ -27,7 +27,7 @@ from . import util
 from . import bitcoin
 from .bitcoin import *
 
-MAX_TARGET = 0x7FFFF00000000000000000000000000000000000000000000000000000000000
+MAX_TARGET = 0x7fffffffffff0000000000000000000000000000000000000000000000000000
 
 def serialize_header(res):
     s = int_to_hex(res.get('version'), 4) \
@@ -276,7 +276,7 @@ class Blockchain(util.PrintError):
         if bitcoin.NetworkConstants.TESTNET:
             return 0, 0
         if index == -1:
-            return 0x1d00ffff, MAX_TARGET
+			return 0x207fffff, MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
@@ -286,7 +286,7 @@ class Blockchain(util.PrintError):
         bits = last.get('bits')
         target = self.bits_to_target(bits)
         nActualTimespan = last.get('timestamp') - first.get('timestamp')
-        nTargetTimespan = 14 * 24 * 60 * 60
+        nTargetTimespan = 2 * 24 * 60 * 60
         nActualTimespan = max(nActualTimespan, nTargetTimespan // 4)
         nActualTimespan = min(nActualTimespan, nTargetTimespan * 4)
         new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
