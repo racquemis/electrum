@@ -33,7 +33,7 @@ if platform.system() in ['Linux', 'FreeBSD', 'DragonFly']:
     ]
 
 setup(
-    name="Electrum",
+    name="Electrum MNX",
     version=version.ELECTRUM_VERSION,
     install_requires=[
         'pyaes>=0.1a1',
@@ -83,10 +83,10 @@ setup(
     },
     scripts=['electrum'],
     data_files=data_files,
-    description="Lightweight Bitcoin Wallet",
+    description="Lightweight Minexcoin Wallet",
     author="Thomas Voegtlin",
     author_email="thomasv@electrum.org",
     license="MIT Licence",
     url="https://electrum.org",
-    long_description="""Lightweight Bitcoin Wallet"""
+    long_description="""Lightweight Minexcoin Wallet"""
 )
