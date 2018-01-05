@@ -2,13 +2,13 @@
 # sudo desktop-file-install electrum.desktop
 
 [Desktop Entry]
-Comment=Lightweight Bitcoin Client
+Comment=Lightweight Minexcoin Client
 Exec=electrum %u
 GenericName[en_US]=Bitcoin Wallet
-GenericName=Bitcoin Wallet
+GenericName=Minexcoin Wallet
 Icon=electrum
-Name[en_US]=Electrum Bitcoin Wallet
-Name=Electrum Bitcoin Wallet
+Name[en_US]=Electrum Minexcoin Wallet
+Name=Electrum Minexcoin Wallet
 Categories=Finance;Network;
 StartupNotify=false
 Terminal=false
