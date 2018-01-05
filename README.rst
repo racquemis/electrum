@@ -1,4 +1,4 @@
-Electrum - Lightweight Bitcoin client
+Electrum-mnx - Lightweight Minexcoin client
 =====================================
 
 ::
