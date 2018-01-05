@@ -27,7 +27,7 @@ from . import util
 from . import bitcoin
 from .bitcoin import *
 
-MAX_TARGET = 0x7fffffffffff0000000000000000000000000000000000000000000000000000
+MAX_TARGET = 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 def serialize_header(res):
     s = int_to_hex(res.get('version'), 4) \
@@ -47,7 +47,8 @@ def deserialize_header(s, height):
     h['merkle_root'] = hash_encode(s[36:68])
     h['timestamp'] = hex_to_int(s[100:104])
     h['bits'] = hex_to_int(s[104:108])
-    h['nonce'] = hex_to_int(s[108:140])
+    h['nonce'] = hash_encode(s[108:209])
+    h['solution'] = hash_encode(s[209:209])
     h['block_height'] = height
     return h
 
@@ -147,7 +148,7 @@ class Blockchain(util.PrintError):
 
     def update_size(self):
         p = self.path()
-        self._size = os.path.getsize(p)//140 if os.path.exists(p) else 0
+        self._size = os.path.getsize(p)//209 if os.path.exists(p) else 0
 
     def verify_header(self, header, prev_hash, target):
         _hash = hash_header(header)
@@ -162,11 +163,11 @@ class Blockchain(util.PrintError):
             raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
-        num = len(data) // 140
+        num = len(data) // 209
         prev_hash = self.get_hash(index * 960 - 1)
         target = self.get_target(index-1)
         for i in range(num):
-            raw_header = data[i*140:(i+1) * 140]
+            raw_header = data[i*209:(i+1) * 209]
             header = deserialize_header(raw_header, index*960 + i)
             self.verify_header(header, prev_hash, target)
             prev_hash = hash_header(header)
@@ -178,7 +179,7 @@ class Blockchain(util.PrintError):
 
     def save_chunk(self, index, chunk):
         filename = self.path()
-        d = (index * 960 - self.checkpoint) * 140
+        d = (index * 960 - self.checkpoint) * 209
         if d < 0:
             chunk = chunk[-d:]
             d = 0
@@ -198,10 +199,10 @@ class Blockchain(util.PrintError):
         with open(self.path(), 'rb') as f:
             my_data = f.read()
         with open(parent.path(), 'rb') as f:
-            f.seek((checkpoint - parent.checkpoint)*140)
-            parent_data = f.read(parent_branch_size*140)
+            f.seek((checkpoint - parent.checkpoint)*209)
+            parent_data = f.read(parent_branch_size*209)
         self.write(parent_data, 0)
-        parent.write(my_data, (checkpoint - parent.checkpoint)*140)
+        parent.write(my_data, (checkpoint - parent.checkpoint)*209)
         # store file path
         for b in blockchains.values():
             b.old_path = b.path()
@@ -223,7 +224,7 @@ class Blockchain(util.PrintError):
         filename = self.path()
         with self.lock:
             with open(filename, 'rb+') as f:
-                if offset != self._size*140:
+                if offset != self._size*209:
                     f.seek(offset)
                     f.truncate()
                 f.seek(offset)
@@ -236,8 +237,8 @@ class Blockchain(util.PrintError):
         delta = header.get('block_height') - self.checkpoint
         data = bfh(serialize_header(header))
         assert delta == self.size()
-        assert len(data) == 140
-        self.write(data, delta*140)
+        assert len(data) == 209
+        self.write(data, delta*209)
         self.swap_with_parent()
 
     def read_header(self, height):
@@ -252,9 +253,9 @@ class Blockchain(util.PrintError):
         name = self.path()
         if os.path.exists(name):
             with open(name, 'rb') as f:
-                f.seek(delta * 140)
-                h = f.read(140)
-        if h == bytes([0])*140:
+                f.seek(delta * 209)
+                h = f.read(209)
+        if h == bytes([0])*209:
             return None
         return deserialize_header(h, height)
 
@@ -276,7 +277,7 @@ class Blockchain(util.PrintError):
         if bitcoin.NetworkConstants.TESTNET:
             return 0, 0
         if index == -1:
-			return 0x207fffff, MAX_TARGET
+			return 0x1d00ffff, MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
@@ -294,7 +295,7 @@ class Blockchain(util.PrintError):
 
     def bits_to_target(self, bits):
         bitsN = (bits >> 24) & 0xff
-        if not (bitsN >= 0x03 and bitsN <= 0x1d):
+        if not (bitsN >= 0x03 and bitsN <= 0x1e):
             raise BaseException("First part of bits should be in [0x03, 0x1d]")
         bitsBase = bits & 0xffffff
         if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
@@ -351,3 +352,4 @@ class Blockchain(util.PrintError):
             target = self.get_target(index)
             cp.append((h, target))
         return cp
+
