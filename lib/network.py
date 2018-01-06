@@ -1075,4 +1075,4 @@ class Network(util.DaemonThread):
             f.write(json.dumps(cp, indent=4))
 
     def max_checkpoint(self):
-        return max(0, len(bitcoin.NetworkConstants.CHECKPOINTS) * 2016 - 1)
+        return max(0, len(bitcoin.NetworkConstants.CHECKPOINTS) * 960 - 1)
