@@ -33,10 +33,11 @@ def serialize_header(res):
     s = int_to_hex(res.get('version'), 4) \
         + rev_hex(res.get('prev_block_hash')) \
         + rev_hex(res.get('merkle_root')) \
-		+ int_to_hex(0, 32) \
+        + int_to_hex(0, 32) \
         + int_to_hex(int(res.get('timestamp')), 4) \
         + int_to_hex(int(res.get('bits')), 4) \
-        + int_to_hex(int(res.get('nonce')), 32)
+        + rev_hex(res.get('nonce')) \
+        + rev_hex(res.get('solution'))
     return s
 
 def deserialize_header(s, height):
@@ -47,9 +48,10 @@ def deserialize_header(s, height):
     h['merkle_root'] = hash_encode(s[36:68])
     h['timestamp'] = hex_to_int(s[100:104])
     h['bits'] = hex_to_int(s[104:108])
-    h['nonce'] = hash_encode(s[108:209])
-    h['solution'] = hash_encode(s[209:209])
+    h['nonce'] = hash_encode(s[108:140])
+    h['solution'] = hash_encode(s[140:209])
     h['block_height'] = height
+
     return h
 
 def hash_header(header):
@@ -155,7 +157,7 @@ class Blockchain(util.PrintError):
         if prev_hash != header.get('prev_block_hash'):
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
-            return
+            return       
         bits = self.target_to_bits(target)
         if bits != header.get('bits'):
             raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
@@ -244,17 +246,19 @@ class Blockchain(util.PrintError):
     def read_header(self, height):
         assert self.parent_id != self.checkpoint
         if height < 0:
-            return
+            return       
         if height < self.checkpoint:
             return self.parent().read_header(height)
         if height > self.height():
             return
         delta = height - self.checkpoint
         name = self.path()
+ 
         if os.path.exists(name):
             with open(name, 'rb') as f:
                 f.seek(delta * 209)
                 h = f.read(209)
+  
         if h == bytes([0])*209:
             return None
         return deserialize_header(h, height)
@@ -277,7 +281,7 @@ class Blockchain(util.PrintError):
         if bitcoin.NetworkConstants.TESTNET:
             return 0, 0
         if index == -1:
-			return 0x1d00ffff, MAX_TARGET
+            return 0x1d00ffff, MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
@@ -296,7 +300,7 @@ class Blockchain(util.PrintError):
     def bits_to_target(self, bits):
         bitsN = (bits >> 24) & 0xff
         if not (bitsN >= 0x03 and bitsN <= 0x1e):
-            raise BaseException("First part of bits should be in [0x03, 0x1d]")
+            raise BaseException("First part of bits should be in [0x03, 0x1d] Is: " + str(format(bitsN, '02x')))
         bitsBase = bits & 0xffffff
         if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
             raise BaseException("Second part of bits should be in [0x8000, 0x7fffff]")
@@ -352,4 +356,3 @@ class Blockchain(util.PrintError):
             target = self.get_target(index)
             cp.append((h, target))
         return cp
-
