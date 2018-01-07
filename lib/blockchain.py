@@ -299,8 +299,8 @@ class Blockchain(util.PrintError):
 
     def bits_to_target(self, bits):
         bitsN = (bits >> 24) & 0xff
-        if not (bitsN >= 0x03 and bitsN <= 0x1e):
-            raise BaseException("First part of bits should be in [0x03, 0x1d] Is: " + str(format(bitsN, '02x')))
+        if not (bitsN >= 0x03 and bitsN <= 0x20):
+            raise BaseException("First part of bits should be in [0x03, 0x20] Is: " + str(format(bitsN, '02x')))
         bitsBase = bits & 0xffffff
         if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
             raise BaseException("Second part of bits should be in [0x8000, 0x7fffff]")
