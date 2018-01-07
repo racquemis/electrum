@@ -225,7 +225,7 @@ def android_data_dir():
     return PythonActivity.mActivity.getFilesDir().getPath() + '/data'
 
 def android_headers_dir():
-    d = android_ext_dir() + '/org.electrum.electrum'
+    d = android_ext_dir() + '/org.electrum.electrum-mnx'
     if not os.path.exists(d):
         os.mkdir(d)
     return d
@@ -315,11 +315,11 @@ def user_dir():
     if 'ANDROID_DATA' in os.environ:
         return android_check_data_dir()
     elif os.name == 'posix':
-        return os.path.join(os.environ["HOME"], ".electrum")
+        return os.path.join(os.environ["HOME"], ".electrum-mnx")
     elif "APPDATA" in os.environ:
-        return os.path.join(os.environ["APPDATA"], "Electrum")
+        return os.path.join(os.environ["APPDATA"], "Electrum-mnx")
     elif "LOCALAPPDATA" in os.environ:
-        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum")
+        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum-mnx")
     else:
         #raise Exception("No home directory found in environment variables.")
         return
@@ -465,7 +465,7 @@ def parse_URI(uri, on_pr=None):
 
     u = urllib.parse.urlparse(uri)
     if u.scheme != 'minexcoin':
-        raise BaseException("Not a bitcoin URI")
+        raise BaseException("Not a minexcoin URI")
     address = u.path
 
     # python for android fails to parse query
