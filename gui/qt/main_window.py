@@ -2017,17 +2017,18 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         d.setLayout(vbox)
         d.exec_()
 
-    msg_sign = ("Signing with an address actually means signing with the corresponding "
+    msg_sign = _("Signing with an address actually means signing with the corresponding "
                 "private key, and verifying with the corresponding public key. The "
                 "address you have entered does not have a unique public key, so these "
-                "operations cannot be performed.")
+                "operations cannot be performed.") + '\n\n' + \
+               _('The operation is undefined. Not just in Electrum, but in general.')
 
     @protected
     def do_sign(self, address, message, signature, password):
         address  = address.text().strip()
         message = message.toPlainText().strip()
         if not bitcoin.is_address(address):
-            self.show_message('Invalid Minexcoin address.')
+            self.show_message('Invalid Bitcoin address.')
             return
         txin_type = self.wallet.get_txin_type(address)
         if txin_type not in ['p2pkh', 'p2wpkh', 'p2wpkh-p2sh']:
@@ -2046,7 +2047,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         address  = address.text().strip()
         message = message.toPlainText().strip().encode('utf-8')
         if not bitcoin.is_address(address):
-            self.show_message('Invalid Minexcoin address.')
+            self.show_message('Invalid Bitcoin address.')
             return
         try:
             # This can throw on invalid base64
