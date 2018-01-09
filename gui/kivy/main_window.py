@@ -154,7 +154,7 @@ class ElectrumWindow(App):
         self._trigger_update_history()
 
     def _get_bu(self):
-        return self.electrum_config.get('base_unit', 'mBTC')
+        return self.electrum_config.get('base_unit', 'MNX')
 
     def _set_bu(self, value):
         assert value in base_units.keys()
@@ -642,6 +642,7 @@ class ElectrumWindow(App):
         run_hook('load_wallet', wallet, self)
 
     def update_status(self, *dt):
+        fiat_balance = ''	
         self.num_blocks = self.network.get_local_height()
         if not self.wallet:
             self.status = _("No Wallet")
@@ -659,12 +660,13 @@ class ElectrumWindow(App):
                 c, u, x = self.wallet.get_balance()
                 text = self.format_amount(c+x+u)
                 status = str(text.strip() + ' ' + self.base_unit)
+                fiat_balance = (self.fx.format_amount_and_units(c+u+x) or '') if self.fx.is_enabled() else ''
         else:
             status = _("Disconnected")
+	
+        n = self.wallet.basename() if fiat_balance == '' else fiat_balance
+        self.status = '[size=15dp]%s[/size]\n%s' %(fiat_balance, status)
 
-        n = self.wallet.basename()
-        self.status = '[size=15dp]%s[/size]\n%s' %(n, status)
-        #fiat_balance = self.fx.format_amount_and_units(c+u+x) or ''
 
     def get_max_amount(self):
         inputs = self.wallet.get_spendable_coins(None, self.electrum_config)
@@ -693,8 +695,8 @@ class ElectrumWindow(App):
                 from plyer import notification
             icon = (os.path.dirname(os.path.realpath(__file__))
                     + '/../../' + self.icon)
-            notification.notify('Electrum', message,
-                            app_icon=icon, app_name='Electrum')
+            notification.notify('Electrum Minexcoin', message,
+                            app_icon=icon, app_name='ElectrumMNX')
         except ImportError:
             Logger.Error('Notification: needs plyer; `sudo pip install plyer`')
 
