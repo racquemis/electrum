@@ -695,7 +695,7 @@ class ElectrumWindow(App):
                 from plyer import notification
             icon = (os.path.dirname(os.path.realpath(__file__))
                     + '/../../' + self.icon)
-            notification.notify('Electrum Minexcoin', message,
+            notification.notify('Electrum ', message,
                             app_icon=icon, app_name='ElectrumMNX')
         except ImportError:
             Logger.Error('Notification: needs plyer; `sudo pip install plyer`')
@@ -956,3 +956,4 @@ class ElectrumWindow(App):
             key = str(self.wallet.export_private_key(addr, password)[0])
             pk_label.data = key
         self.protected(_("Enter your PIN code in order to decrypt your private key"), show_private_key, (addr, pk_label))
+
