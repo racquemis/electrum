@@ -51,7 +51,6 @@ def deserialize_header(s, height):
     h['nonce'] = hash_encode(s[108:140])
     h['solution'] = hash_encode(s[140:209])
     h['block_height'] = height
-
     return h
 
 def hash_header(header):
@@ -59,6 +58,12 @@ def hash_header(header):
         return '0' * 64
     if header.get('prev_block_hash') is None:
         header['prev_block_hash'] = '00'*32
+    #temphash = hash_encode(Hash(bfh(serialize_header(header))))
+    #if (header['block_height'] + 1) % 960 == 0:
+    #    bitsN = (header['bits'] >> 24) & 0xff
+    #    bitsBase = header['bits'] & 0xffffff
+    #    target = bitsBase << (8 * (bitsN-3))
+    #    print('["'+ temphash + '",'+ str(target) + '],')
     return hash_encode(Hash(bfh(serialize_header(header))))
 
 
@@ -153,16 +158,19 @@ class Blockchain(util.PrintError):
         self._size = os.path.getsize(p)//209 if os.path.exists(p) else 0
 
     def verify_header(self, header, prev_hash, target):
+        #return True # Minexcoin: no chain verify
         _hash = hash_header(header)
         if prev_hash != header.get('prev_block_hash'):
+            print("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
+            print(header);
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
-            return       
-        #bits = self.target_to_bits(target)
-        #if bits != header.get('bits'):
-        #    raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
-        #if int('0x' + _hash, 16) > target:
-        #    raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
+            return      
+        bits = self.target_to_bits(target)
+        if bits != header.get('bits'):
+            raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
+        if int('0x' + _hash, 16) > target:
+            raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
         num = len(data) // 209
@@ -281,7 +289,7 @@ class Blockchain(util.PrintError):
         if bitcoin.NetworkConstants.TESTNET:
             return 0, 0
         if index == -1:
-            return 0x1d00ffff, MAX_TARGET
+            return 0x207fffff, MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
@@ -325,7 +333,7 @@ class Blockchain(util.PrintError):
             return hash_header(header) == bitcoin.NetworkConstants.GENESIS
         try:
             prev_hash = self.get_hash(height - 1)
-        except:
+        except BaseException as e:
             return False
         if prev_hash != header.get('prev_block_hash'):
             return False
