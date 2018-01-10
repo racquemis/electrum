@@ -1,7 +1,7 @@
 [app]
 
 # (str) Title of your application
-title = Electrum MNX
+title = Electrum Minexcoin
 
 # (str) Package name
 package.name = ElectrumMNX
@@ -24,11 +24,11 @@ source.exclude_dirs = bin, build, dist, contrib, gui/qt, gui/kivy/tools, gui/kiv
 source.exclude_patterns = Makefile,setup*
 
 # (str) Application versioning (method 1)
-version.regex = version_apk = '(.*)'
-version.filename = %(source.dir)s/contrib/versions.py
+#version.regex = version_apk = '(.*)'
+#version.filename = %(source.dir)s/contrib/versions.py
 
 # (str) Application versioning (method 2)
-#version = 1.9.8
+version = 3.0.5
 
 # (list) Application requirements
 requirements = python3crystax, android, openssl, plyer, kivy==master
@@ -55,13 +55,13 @@ fullscreen = False
 android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, CAMERA
 
 # (int) Android API to use
-#android.api = 14
+#android.api = 19
 
 # (int) Minimum API required (8 = Android 2.2 devices)
-#android.minapi = 8
+#android.minapi = 19
 
 # (int) Android SDK version to use
-#android.sdk = 21
+#android.sdk = 24
 
 # (str) Android NDK version to use
 #android.ndk = 9
@@ -70,7 +70,7 @@ android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, C
 android.private_storage = True
 
 # (str) Android NDK directory (if empty, it will be automatically downloaded.)
-android.ndk_path = /opt/crystax-ndk-10.3.2
+android.ndk_path = ~/crystax-ndk-10.3.2
 
 # (str) Android SDK directory (if empty, it will be automatically downloaded.)
 #android.sdk_path =
@@ -91,7 +91,7 @@ android.add_src = gui/kivy/data/java-classes/
 
 android.gradle_dependencies = me.dm7.barcodescanner:zxing:1.9.8
 
-android.add_activities = org.electrum.qr.SimpleScannerActivity
+#android.add_activities = org.electrum.qr.SimpleScannerActivity
 
 # (str) python-for-android branch to use, if not master, useful to try
 # not yet merged features.
