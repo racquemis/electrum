@@ -27,17 +27,15 @@ from . import util
 from . import bitcoin
 from .bitcoin import *
 
-MAX_TARGET = 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+MAX_TARGET = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
 
 def serialize_header(res):
     s = int_to_hex(res.get('version'), 4) \
         + rev_hex(res.get('prev_block_hash')) \
         + rev_hex(res.get('merkle_root')) \
-        + int_to_hex(0, 32) \
         + int_to_hex(int(res.get('timestamp')), 4) \
         + int_to_hex(int(res.get('bits')), 4) \
-        + rev_hex(res.get('nonce')) \
-        + rev_hex(res.get('solution'))
+        + int_to_hex(int(res.get('nonce')), 4)
     return s
 
 def deserialize_header(s, height):
@@ -46,10 +44,9 @@ def deserialize_header(s, height):
     h['version'] = hex_to_int(s[0:4])
     h['prev_block_hash'] = hash_encode(s[4:36])
     h['merkle_root'] = hash_encode(s[36:68])
-    h['timestamp'] = hex_to_int(s[100:104])
-    h['bits'] = hex_to_int(s[104:108])
-    h['nonce'] = hash_encode(s[108:140])
-    h['solution'] = hash_encode(s[140:209])
+    h['timestamp'] = hex_to_int(s[68:72])
+    h['bits'] = hex_to_int(s[72:76])
+    h['nonce'] = hex_to_int(s[76:80])
     h['block_height'] = height
     return h
 
@@ -58,12 +55,6 @@ def hash_header(header):
         return '0' * 64
     if header.get('prev_block_hash') is None:
         header['prev_block_hash'] = '00'*32
-    #temphash = hash_encode(Hash(bfh(serialize_header(header))))
-    #if (header['block_height'] + 1) % 960 == 0:
-    #    bitsN = (header['bits'] >> 24) & 0xff
-    #    bitsBase = header['bits'] & 0xffffff
-    #    target = bitsBase << (8 * (bitsN-3))
-    #    print('["'+ temphash + '",'+ str(target) + '],')
     return hash_encode(Hash(bfh(serialize_header(header))))
 
 
@@ -155,32 +146,27 @@ class Blockchain(util.PrintError):
 
     def update_size(self):
         p = self.path()
-        self._size = os.path.getsize(p)//209 if os.path.exists(p) else 0
+        self._size = os.path.getsize(p)//80 if os.path.exists(p) else 0
 
     def verify_header(self, header, prev_hash, target):
-        #return True # Minexcoin: no chain verify
         _hash = hash_header(header)
         if prev_hash != header.get('prev_block_hash'):
-            print("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
-            print(header);
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
-            return      
-        #bits = self.target_to_bits(target)
-        #if bits != header.get('bits'):
-        #    print("test4")
-        #    raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
-        #if int('0x' + _hash, 16) > target:
-        #    print("test4")
-        #    raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
+            return
+        bits = self.target_to_bits(target)
+        if bits != header.get('bits'):
+            raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
+        if int('0x' + _hash, 16) > target:
+            raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
-        num = len(data) // 209
-        prev_hash = self.get_hash(index * 960 - 1)
+        num = len(data) // 80
+        prev_hash = self.get_hash(index * 2016 - 1)
         target = self.get_target(index-1)
         for i in range(num):
-            raw_header = data[i*209:(i+1) * 209]
-            header = deserialize_header(raw_header, index*960 + i)
+            raw_header = data[i*80:(i+1) * 80]
+            header = deserialize_header(raw_header, index*2016 + i)
             self.verify_header(header, prev_hash, target)
             prev_hash = hash_header(header)
 
@@ -191,7 +177,7 @@ class Blockchain(util.PrintError):
 
     def save_chunk(self, index, chunk):
         filename = self.path()
-        d = (index * 960 - self.checkpoint) * 209
+        d = (index * 2016 - self.checkpoint) * 80
         if d < 0:
             chunk = chunk[-d:]
             d = 0
@@ -211,10 +197,10 @@ class Blockchain(util.PrintError):
         with open(self.path(), 'rb') as f:
             my_data = f.read()
         with open(parent.path(), 'rb') as f:
-            f.seek((checkpoint - parent.checkpoint)*209)
-            parent_data = f.read(parent_branch_size*209)
+            f.seek((checkpoint - parent.checkpoint)*80)
+            parent_data = f.read(parent_branch_size*80)
         self.write(parent_data, 0)
-        parent.write(my_data, (checkpoint - parent.checkpoint)*209)
+        parent.write(my_data, (checkpoint - parent.checkpoint)*80)
         # store file path
         for b in blockchains.values():
             b.old_path = b.path()
@@ -232,11 +218,11 @@ class Blockchain(util.PrintError):
         blockchains[self.checkpoint] = self
         blockchains[parent.checkpoint] = parent
 
-    def write(self, data, offset, truncate = True):
+    def write(self, data, offset, truncate=True):
         filename = self.path()
         with self.lock:
             with open(filename, 'rb+') as f:
-                if truncate and offset != self._size*209:
+                if truncate and offset != self._size*80:
                     f.seek(offset)
                     f.truncate()
                 f.seek(offset)
@@ -249,27 +235,25 @@ class Blockchain(util.PrintError):
         delta = header.get('block_height') - self.checkpoint
         data = bfh(serialize_header(header))
         assert delta == self.size()
-        assert len(data) == 209
-        self.write(data, delta*209)
+        assert len(data) == 80
+        self.write(data, delta*80)
         self.swap_with_parent()
 
     def read_header(self, height):
         assert self.parent_id != self.checkpoint
         if height < 0:
-            return       
+            return
         if height < self.checkpoint:
             return self.parent().read_header(height)
         if height > self.height():
             return
         delta = height - self.checkpoint
         name = self.path()
- 
         if os.path.exists(name):
             with open(name, 'rb') as f:
-                f.seek(delta * 209)
-                h = f.read(209)
-  
-        if h == bytes([0])*209:
+                f.seek(delta * 80)
+                h = f.read(80)
+        if h == bytes([0])*80:
             return None
         return deserialize_header(h, height)
 
@@ -278,9 +262,9 @@ class Blockchain(util.PrintError):
             return '0000000000000000000000000000000000000000000000000000000000000000'
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
-        elif height < len(self.checkpoints) * 960:
-            assert (height+1) % 960 == 0, height
-            index = height // 960
+        elif height < len(self.checkpoints) * 2016:
+            assert (height+1) % 2016 == 0, height
+            index = height // 2016
             h, t = self.checkpoints[index]
             return h
         else:
@@ -289,19 +273,19 @@ class Blockchain(util.PrintError):
     def get_target(self, index):
         # compute target from chunk x, used in chunk x+1
         if bitcoin.NetworkConstants.TESTNET:
-            return 0, 0
+            return 0
         if index == -1:
-            return 0x207fffff, MAX_TARGET
+            return MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
         # new target
-        first = self.read_header(index * 960)
-        last = self.read_header(index * 960 + 959)
+        first = self.read_header(index * 2016)
+        last = self.read_header(index * 2016 + 2015)
         bits = last.get('bits')
         target = self.bits_to_target(bits)
         nActualTimespan = last.get('timestamp') - first.get('timestamp')
-        nTargetTimespan = 2 * 24 * 60 * 60
+        nTargetTimespan = 14 * 24 * 60 * 60
         nActualTimespan = max(nActualTimespan, nTargetTimespan // 4)
         nActualTimespan = min(nActualTimespan, nTargetTimespan * 4)
         new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
@@ -309,8 +293,8 @@ class Blockchain(util.PrintError):
 
     def bits_to_target(self, bits):
         bitsN = (bits >> 24) & 0xff
-        if not (bitsN >= 0x03 and bitsN <= 0x20):
-            raise BaseException("First part of bits should be in [0x03, 0x20] Is: " + str(format(bitsN, '02x')))
+        if not (bitsN >= 0x03 and bitsN <= 0x1d):
+            raise BaseException("First part of bits should be in [0x03, 0x1d]")
         bitsBase = bits & 0xffffff
         if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
             raise BaseException("Second part of bits should be in [0x8000, 0x7fffff]")
@@ -335,11 +319,11 @@ class Blockchain(util.PrintError):
             return hash_header(header) == bitcoin.NetworkConstants.GENESIS
         try:
             prev_hash = self.get_hash(height - 1)
-        except BaseException as e:
+        except:
             return False
         if prev_hash != header.get('prev_block_hash'):
             return False
-        target = self.get_target(height // 960 - 1)
+        target = self.get_target(height // 2016 - 1)
         try:
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
@@ -360,9 +344,9 @@ class Blockchain(util.PrintError):
     def get_checkpoints(self):
         # for each chunk, store the hash of the last block and the target after the chunk
         cp = []
-        n = self.height() // 960
+        n = self.height() // 2016
         for index in range(n):
-            h = self.get_hash((index+1) * 960 -1)
+            h = self.get_hash((index+1) * 2016 -1)
             target = self.get_target(index)
             cp.append((h, target))
         return cp
