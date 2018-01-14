@@ -168,8 +168,10 @@ class Blockchain(util.PrintError):
             return      
         #bits = self.target_to_bits(target)
         #if bits != header.get('bits'):
+        #    print("test4")
         #    raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
         #if int('0x' + _hash, 16) > target:
+        #    print("test4")
         #    raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
@@ -193,7 +195,7 @@ class Blockchain(util.PrintError):
         if d < 0:
             chunk = chunk[-d:]
             d = 0
-        self.write(chunk, d)
+        self.write(chunk, d, index > len(self.checkpoints))
         self.swap_with_parent()
 
     def swap_with_parent(self):
@@ -230,11 +232,11 @@ class Blockchain(util.PrintError):
         blockchains[self.checkpoint] = self
         blockchains[parent.checkpoint] = parent
 
-    def write(self, data, offset):
+    def write(self, data, offset, truncate = True):
         filename = self.path()
         with self.lock:
             with open(filename, 'rb+') as f:
-                if offset != self._size*209:
+                if truncate and offset != self._size*209:
                     f.seek(offset)
                     f.truncate()
                 f.seek(offset)
@@ -277,7 +279,7 @@ class Blockchain(util.PrintError):
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
         elif height < len(self.checkpoints) * 960:
-            assert (height+1) % 960 == 0
+            assert (height+1) % 960 == 0, height
             index = height // 960
             h, t = self.checkpoints[index]
             return h
@@ -287,9 +289,9 @@ class Blockchain(util.PrintError):
     def get_target(self, index):
         # compute target from chunk x, used in chunk x+1
         if bitcoin.NetworkConstants.TESTNET:
-            return 0
+            return 0, 0
         if index == -1:
-            return MAX_TARGET
+            return 0x207fffff, MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
