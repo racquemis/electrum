@@ -279,7 +279,7 @@ class Blockchain(util.PrintError):
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
         elif height < len(self.checkpoints) * 960:
-            assert (height+1) % 960 == 0, height
+            assert (height+1) % 2016 == 0, height
             index = height // 960
             h, t = self.checkpoints[index]
             return h
