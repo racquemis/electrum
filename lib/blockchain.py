@@ -236,7 +236,7 @@ class Blockchain(util.PrintError):
         filename = self.path()
         with self.lock:
             with open(filename, 'rb+') as f:
-                if offset != self._size*209:
+                if offset != self._size*80:
                     f.seek(offset)
                     f.truncate()
                 f.seek(offset)
