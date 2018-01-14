@@ -6,6 +6,7 @@ import datetime
 import traceback
 from decimal import Decimal
 import threading
+import base64
 
 import electrum
 from electrum.bitcoin import TYPE_ADDRESS
@@ -374,6 +375,7 @@ class ElectrumWindow(App):
         popup.requestor = req.get('address')
         popup.fund = fund if fund else 0
         popup.export = self.export_private_keys
+        popup.sign_mb = self.sign_minexbank
         popup.open()
 
     def qr_dialog(self, title, data, show_text=False):
@@ -961,3 +963,19 @@ class ElectrumWindow(App):
                 return
         self.protected(_("Enter your PIN code in order to decrypt your private key"), show_private_key, (addr, pk_label))
 
+    def sign_minexbank(self, sig_label, addr):
+        if self.wallet.is_watching_only():
+            self.show_info(_(" This is a watching-only wallet which can't be used for minexbank." ))
+            return
+        def show_mxsignature(addr, sig_label, password):
+            if self.wallet.has_password() and password is None:
+                return
+            if not self.wallet.can_export():
+                return
+            try:
+                mxsignature = self.wallet.sign_message(addr, 'minexbank', password)
+                sig_label.data = base64.b64encode(mxsignature).decode('ascii')
+            except InvalidPassword:
+                self.show_error("Invalid PIN")
+                return
+        self.protected(_("Enter your PIN code in order to generate minexbank signature"), show_mxsignature, (addr, sig_label))
