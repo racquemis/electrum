@@ -428,9 +428,9 @@ def time_difference(distance_in_time, include_seconds):
 
 mainnet_block_explorers = {
     'Bchain.info': ('https://bchain.info/MNX',
-                        {'tx': 'tx', 'addr': 'Address'}),
+                        {'tx': 'tx', 'addr': 'addr'}),
     'system default': ('blockchain:',
-                        {'tx': 'tx', 'addr': 'address'}),
+                        {'tx': 'tx', 'addr': 'addr'}),
 }
 
 testnet_block_explorers = {
