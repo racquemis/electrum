@@ -144,7 +144,7 @@ class CoinMarketCap(ExchangeBase):
             except:
                 rate_cur =  prev_rate_cur
             row[0] = self.parse_time(row[0])
-            row[1] = str(float(row[4])*(1.0/rate_usd)*(1.0 if ccy == "EUR" else rate_cur))			
+            row[4] = str(float(row[4])*(1.0/rate_usd)*(1.0 if ccy == "EUR" else rate_cur))			
         return dict([(h[0], h[4])
                     for h in history])
 					
