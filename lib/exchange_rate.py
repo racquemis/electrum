@@ -5,7 +5,10 @@ import sys
 from threading import Thread
 import time
 import csv
+import re
 from decimal import Decimal
+import io
+from zipfile import ZipFile
 
 from .bitcoin import COIN
 from .i18n import _
@@ -87,6 +90,27 @@ class ExchangeBase(PrintError):
 
 class CoinMarketCap(ExchangeBase):
 
+    def get_cmc_csv(self):
+        response = requests.request('GET', "https://coinmarketcap.com/currencies/Minexcoin/historical-data/?start=20171103&end=20403112",
+                                    headers={'User-Agent' : 'Electrum'})
+        html = response.content.decode('utf-8')
+        head = re.search(r'<thead>(.*)</thead>', html, re.DOTALL).group(1)
+        header = re.findall(r'<th .*>([\w ]+)</th>', head)
+        body = re.search(r'<tbody>(.*)</tbody>', html, re.DOTALL).group(1)
+        raw_rows = re.findall(r'<tr[^>]*>' + r'\s*<td[^>]*>([^<]+)</td>'*7 + r'\s*</tr>', body) 
+        rows = []
+        for row in raw_rows:
+            row = [ field.replace(',', "") for field in row ]
+            rows.append(row)
+        return rows
+		
+    def get_zip_csv(self):
+        r = requests.request('GET', "http://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip",
+                                 headers={'User-Agent' : 'Electrum'})
+        zipfile = ZipFile(io.BytesIO(r.content))
+        reader = csv.DictReader(zipfile.open('eurofxref-hist.csv').read().decode().split('\n'))
+        return list(reader)
+	
     def get_rates(self, ccy):
         json = self.get_json('api.coinmarketcap.com', "/v1/ticker/minexcoin/?convert=%s" % ccy)
         return {ccy: Decimal(json[0]['price_'+ccy.lower()])}
@@ -94,9 +118,36 @@ class CoinMarketCap(ExchangeBase):
     def history_ccys(self):
         return ['USD', 'DKK', 'JPY', 'PLN', 'AUD', 'EUR', 'KRW', 'RUB', 'BRL',
                 'GBP', 'MXN', 'SEK', 'CAD', 'HKD', 'MYR', 'SEK', 'SGD', 'CHF',
-                'HUF', 'NOK', 'THB', 'CLP', 'IDR', 'NZD', 'TRY', 'CNY', 'ILS',
-                'PHP', 'TWD', 'CZK', 'INR', 'PKR', 'ZAR']
-
+                'HUF', 'NOK', 'THB', 'IDR', 'NZD', 'TRY', 'CNY', 'ILS',
+                'PHP', 'CZK', 'INR', 'ZAR']
+	
+    def parse_time(self,time):
+        time = datetime.strptime(time, '%b %d %Y')
+        return time.strftime("%Y-%m-%d")
+  
+    def historical_rates(self, ccy):
+        rates = self.get_zip_csv()
+        rates_usd = dict([(r['Date'], r['USD']) for r in rates])
+        rates_cur = dict([(r['Date'], r['USD' if ccy == 'EUR' else ccy]) for r in rates])	
+        history = self.get_cmc_csv()	
+        prev_rate_usd = 1.0
+        prev_rate_cur = 1.0
+        for row in history:
+            try:
+                rate_usd = float(rates_usd[self.parse_time(row[0])])
+                prev_rate_usd = rate_usd
+            except:
+                rate_usd =  prev_rate_usd
+            try:
+                rate_cur = float(rates_cur[self.parse_time(row[0])])
+                prev_rate_cur = rate_cur
+            except:
+                rate_cur =  prev_rate_cur
+            row[0] = self.parse_time(row[0])
+            row[4] = str(float(row[4])*(1.0/rate_usd)*(1.0 if ccy == "EUR" else rate_cur))			
+        return dict([(h[0], h[4])
+                    for h in history])
+					
 def dictinvert(d):
     inv = {}
     for k, vlist in d.items():

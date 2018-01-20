@@ -28,7 +28,7 @@ source.exclude_patterns = Makefile,setup*
 #version.filename = %(source.dir)s/contrib/versions.py
 
 # (str) Application versioning (method 2)
-version = 3.0.5
+version = 3.0.5.31
 
 # (list) Application requirements
 requirements = python3crystax, android, openssl, plyer, kivy==master
@@ -91,7 +91,7 @@ android.add_src = gui/kivy/data/java-classes/
 
 android.gradle_dependencies = me.dm7.barcodescanner:zxing:1.9.8
 
-#android.add_activities = org.electrum.qr.SimpleScannerActivity
+android.add_activities = org.electrummnx.qr.SimpleScannerActivity
 
 # (str) python-for-android branch to use, if not master, useful to try
 # not yet merged features.

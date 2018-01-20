@@ -34,7 +34,7 @@ from functools import wraps
 from decimal import Decimal
 
 from .import util
-from .util import bfh, bh2u, format_satoshis
+from .util import bfh, bh2u, format_satoshis, json_decode
 from .import bitcoin
 from .bitcoin import is_address,  hash_160, COIN, TYPE_ADDRESS
 from .i18n import _
@@ -151,10 +151,8 @@ class Commands:
     @command('')
     def setconfig(self, key, value):
         """Set a configuration variable. 'value' may be a string or a Python expression."""
-        try:
-            value = ast.literal_eval(value)
-        except:
-            pass
+        if key not in ('rpcuser', 'rpcpassword'):
+            value = json_decode(value)
         self.config.set_key(key, value)
         return True
 
@@ -658,19 +656,27 @@ class Commands:
             import urllib.request
             headers = {'content-type':'application/json'}
             data = {'address':address, 'status':x.get('result')}
+            serialized_data = util.to_bytes(json.dumps(data))
             try:
-                req = urllib.request.Request(URL, json.dumps(data), headers)
+                req = urllib.request.Request(URL, serialized_data, headers)
                 response_stream = urllib.request.urlopen(req, timeout=5)
                 util.print_error('Got Response for %s' % address)
             except BaseException as e:
                 util.print_error(str(e))
-        self.network.send([('blockchain.address.subscribe', [address])], callback)
+        h = self.network.addr_to_scripthash(address)
+        self.network.send([('blockchain.scripthash.subscribe', [h])], callback)
         return True
 
     @command('wn')
     def is_synchronized(self):
         """ return wallet synchronization status """
         return self.wallet.is_up_to_date()
+
+    @command('n')
+    def getfeerate(self):
+        """Return current optimal fee rate per kilobyte, according
+        to config settings (static/dynamic)"""
+        return self.config.fee_per_kb()
 
     @command('')
     def help(self):
@@ -825,7 +831,6 @@ def add_global_options(parser):
     group.add_argument("-P", "--portable", action="store_true", dest="portable", default=False, help="Use local 'electrum_data' directory")
     group.add_argument("-w", "--wallet", dest="wallet_path", help="wallet path")
     group.add_argument("--testnet", action="store_true", dest="testnet", default=False, help="Use Testnet")
-    group.add_argument("--nossl", action="store_true", dest="nossl", default=False, help="Disable SSL")
 
 def get_parser():
     # create main parser

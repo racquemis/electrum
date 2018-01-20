@@ -77,7 +77,11 @@ class PrintError(object):
         return self.__class__.__name__
 
     def print_error(self, *msg):
+        # only prints with --verbose flag
         print_error("[%s]" % self.diagnostic_name(), *msg)
+
+    def print_stderr(self, *msg):
+        print_stderr("[%s]" % self.diagnostic_name(), *msg)
 
     def print_msg(self, *msg):
         print_msg("[%s]" % self.diagnostic_name(), *msg)
@@ -428,9 +432,9 @@ def time_difference(distance_in_time, include_seconds):
 
 mainnet_block_explorers = {
     'Bchain.info': ('https://bchain.info/MNX',
-                        {'tx': 'tx', 'addr': 'Address'}),
+                        {'tx': 'tx', 'addr': 'addr'}),
     'system default': ('blockchain:',
-                        {'tx': 'tx', 'addr': 'address'}),
+                        {'tx': 'tx', 'addr': 'addr'}),
 }
 
 testnet_block_explorers = {
@@ -443,7 +447,7 @@ def block_explorer_info():
     return testnet_block_explorers if bitcoin.NetworkConstants.TESTNET else mainnet_block_explorers
 
 def block_explorer(config):
-    return config.get('block_explorer', 'Blocktrail.com')
+    return config.get('block_explorer', 'Bchain.info')
 
 def block_explorer_tuple(config):
     return block_explorer_info().get(block_explorer(config))
