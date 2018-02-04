@@ -236,7 +236,7 @@ class Ledger_KeyStore(Hardware_KeyStore):
         return address_path[2:]
 
     def decrypt_message(self, pubkey, message, password):
-        raise RuntimeError(_('Encryption and decryption are currently not supported for %s') % self.device)
+        raise RuntimeError(_('Encryption and decryption are currently not supported for {}').format(self.device))
 
     def sign_message(self, sequence, message, password):
         self.signing = True
@@ -463,8 +463,9 @@ class Ledger_KeyStore(Hardware_KeyStore):
         address_path = self.get_derivation()[2:] + "/%d/%d"%sequence
         self.handler.show_message(_("Showing address ..."))
         segwit = Transaction.is_segwit_inputtype(txin_type)
+        segwitNative = txin_type == 'p2wpkh'
         try:
-            client.getWalletPublicKey(address_path, showOnScreen=True, segwit=segwit)
+            client.getWalletPublicKey(address_path, showOnScreen=True, segwit=segwit, segwitNative=segwitNative)
         except BTChipException as e:
             if e.sw == 0x6985:  # cancelled by user
                 pass
@@ -521,7 +522,7 @@ class LedgerPlugin(HW_PluginBase):
             client = Ledger_Client(client)
         return client
 
-    def setup_device(self, device_info, wizard):
+    def setup_device(self, device_info, wizard, purpose):
         devmgr = self.device_manager()
         device_id = device_info.device.id_
         client = devmgr.client_by_id(device_id)

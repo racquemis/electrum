@@ -25,18 +25,21 @@
 
 import webbrowser
 
+from electrum.wallet import UnrelatedTransactionException, TX_HEIGHT_LOCAL
 from .util import *
 from electrum.i18n import _
 from electrum.util import block_explorer_URL
 from electrum.util import timestamp_to_datetime, profiler
 
 
+# note: this list needs to be kept in sync with another in kivy
 TX_ICONS = [
     "warning.png",
     "warning.png",
     "warning.png",
     "unconfirmed.png",
     "unconfirmed.png",
+    "offline_tx.png",
     "clock1.png",
     "clock2.png",
     "clock3.png",
@@ -46,11 +49,12 @@ TX_ICONS = [
 ]
 
 
-class HistoryList(MyTreeWidget):
+class HistoryList(MyTreeWidget, AcceptFileDragDrop):
     filter_columns = [2, 3, 4]  # Date, Description, Amount
 
     def __init__(self, parent=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [], 3)
+        AcceptFileDragDrop.__init__(self, ".txn")
         self.refresh_headers()
         self.setColumnHidden(1, True)
 
@@ -67,6 +71,7 @@ class HistoryList(MyTreeWidget):
 
     @profiler
     def on_update(self):
+        # TODO save and restore scroll position (maybe based on y coord or selected item?)
         self.wallet = self.parent.wallet
         h = self.wallet.get_history(self.get_domain())
         item = self.currentItem()
@@ -158,11 +163,15 @@ class HistoryList(MyTreeWidget):
 
         menu = QMenu()
 
-        menu.addAction(_("Copy %s")%column_title, lambda: self.parent.app.clipboard().setText(column_data))
+        if height == TX_HEIGHT_LOCAL:
+            menu.addAction(_("Remove"), lambda: self.remove_local_tx(tx_hash))
+
+        menu.addAction(_("Copy {}").format(column_title), lambda: self.parent.app.clipboard().setText(column_data))
         if column in self.editable_columns:
-            menu.addAction(_("Edit %s")%column_title, lambda: self.editItem(item, column))
+            menu.addAction(_("Edit {}").format(column_title), lambda: self.editItem(item, column))
 
         menu.addAction(_("Details"), lambda: self.parent.show_transaction(tx))
+
         if is_unconfirmed and tx:
             rbf = is_mine and not tx.is_final()
             if rbf:
@@ -176,3 +185,33 @@ class HistoryList(MyTreeWidget):
         if tx_URL:
             menu.addAction(_("View on block explorer"), lambda: webbrowser.open(tx_URL))
         menu.exec_(self.viewport().mapToGlobal(position))
+
+    def remove_local_tx(self, delete_tx):
+        to_delete = {delete_tx}
+        to_delete |= self.wallet.get_depending_transactions(delete_tx)
+
+        question = _("Are you sure you want to remove this transaction?")
+        if len(to_delete) > 1:
+            question = _(
+                "Are you sure you want to remove this transaction and {} child transactions?".format(len(to_delete) - 1)
+            )
+
+        answer = QMessageBox.question(self.parent, _("Please confirm"), question, QMessageBox.Yes, QMessageBox.No)
+        if answer == QMessageBox.No:
+            return
+        for tx in to_delete:
+            self.wallet.remove_transaction(tx)
+        self.wallet.save_transactions(write=True)
+        # need to update at least: history_list, utxo_list, address_list
+        self.parent.need_update.set()
+
+    def onFileAdded(self, fn):
+        with open(fn) as f:
+            tx = self.parent.tx_from_text(f.read())
+            try:
+                self.wallet.add_transaction(tx.txid(), tx)
+            except UnrelatedTransactionException as e:
+                self.parent.show_error(e)
+            else:
+                self.wallet.save_transactions(write=True)
+                self.on_update()

@@ -32,8 +32,11 @@ from decimal import Decimal
 import base64
 from functools import partial
 
-from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+import PyQt5.QtCore as QtCore
+
+from .exception_window import Exception_Hook
 from PyQt5.QtWidgets import *
 
 from electrum.util import bh2u, bfh
@@ -62,6 +65,7 @@ from .fee_slider import FeeSlider
 
 from .util import *
 
+from electrum.util import profiler
 
 class StatusBarButton(QPushButton):
     def __init__(self, icon, tooltip, func):
@@ -102,6 +106,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         self.gui_object = gui_object
         self.config = config = gui_object.config
+
+        self.setup_exception_hook()
+
         self.network = gui_object.daemon.network
         self.fx = gui_object.daemon.fx
         self.invoices = wallet.invoices
@@ -202,6 +209,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
     def on_history(self, b):
         self.new_fx_history_signal.emit()
+
+    def setup_exception_hook(self):
+        Exception_Hook(self)
 
     def on_fx_history(self):
         self.history_list.refresh_headers()
@@ -325,6 +335,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             self.print_error('close_wallet', self.wallet.storage.path)
         run_hook('close_wallet', self.wallet)
 
+    @profiler
     def load_wallet(self, wallet):
         wallet.thread = TaskThread(self, self.on_error)
         self.wallet = wallet
@@ -372,7 +383,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             extra.append(_('watching only'))
         title += '  [%s]'% ', '.join(extra)
         self.setWindowTitle(title)
-        self.password_menu.setEnabled(self.wallet.can_change_password())
+        self.password_menu.setEnabled(self.wallet.may_have_password())
         self.import_privkey_menu.setVisible(self.wallet.can_import_privkey())
         self.import_address_menu.setVisible(self.wallet.can_import_address())
         self.export_menu.setEnabled(self.wallet.can_export())
@@ -553,24 +564,24 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             return
         self.print_error("Notifying GUI")
         if len(self.tx_notifications) > 0:
-            # Combine the transactions if there are more then three
-            tx_amount = len(self.tx_notifications)
-            if(tx_amount >= 3):
+            # Combine the transactions if there are at least three
+            num_txns = len(self.tx_notifications)
+            if num_txns >= 3:
                 total_amount = 0
                 for tx in self.tx_notifications:
                     is_relevant, is_mine, v, fee = self.wallet.get_wallet_delta(tx)
-                    if(v > 0):
+                    if v > 0:
                         total_amount += v
-                self.notify(_("%(txs)s new transactions received: Total amount received in the new transactions %(amount)s") \
-                            % { 'txs' : tx_amount, 'amount' : self.format_amount_and_units(total_amount)})
+                self.notify(_("{} new transactions received: Total amount received in the new transactions {}")
+                            .format(num_txns, self.format_amount_and_units(total_amount)))
                 self.tx_notifications = []
             else:
-              for tx in self.tx_notifications:
-                  if tx:
-                      self.tx_notifications.remove(tx)
-                      is_relevant, is_mine, v, fee = self.wallet.get_wallet_delta(tx)
-                      if(v > 0):
-                          self.notify(_("New transaction received: %(amount)s") % { 'amount' : self.format_amount_and_units(v)})
+                for tx in self.tx_notifications:
+                    if tx:
+                        self.tx_notifications.remove(tx)
+                        is_relevant, is_mine, v, fee = self.wallet.get_wallet_delta(tx)
+                        if v > 0:
+                            self.notify(_("New transaction received: {}").format(self.format_amount_and_units(v)))
 
     def notify(self, message):
         if self.tray:
@@ -698,7 +709,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 text = _("Synchronizing...")
                 icon = QIcon(":icons/status_waiting.png")
             elif server_lag > 1:
-                text = _("Server is lagging (%d blocks)"%server_lag)
+                text = _("Server is lagging ({} blocks)").format(server_lag)
                 icon = QIcon(":icons/status_lagging.png")
             else:
                 c, u, x = self.wallet.get_balance()
@@ -877,14 +888,15 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             if alias_addr:
                 if self.wallet.is_mine(alias_addr):
                     msg = _('This payment request will be signed.') + '\n' + _('Please enter your password')
-                    password = self.password_dialog(msg)
-                    if password:
-                        try:
-                            self.wallet.sign_payment_request(addr, alias, alias_addr, password)
-                        except Exception as e:
-                            self.show_error(str(e))
+                    password = None
+                    if self.wallet.has_keystore_encryption():
+                        password = self.password_dialog(msg)
+                        if not password:
                             return
-                    else:
+                    try:
+                        self.wallet.sign_payment_request(addr, alias, alias_addr, password)
+                    except Exception as e:
+                        self.show_error(str(e))
                         return
                 else:
                     return
@@ -1372,7 +1384,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         def request_password(self, *args, **kwargs):
             parent = self.top_level_window()
             password = None
-            while self.wallet.has_password():
+            while self.wallet.has_keystore_encryption():
                 password = self.password_dialog(parent=parent)
                 if password is None:
                     # User cancelled password input
@@ -1425,7 +1437,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
             if self.payto_e.is_alias and self.payto_e.validated is False:
                 alias = self.payto_e.toPlainText()
-                msg = _('WARNING: the alias "%s" could not be validated via an additional security check, DNSSEC, and thus may not be correct.'%alias) + '\n'
+                msg = _('WARNING: the alias "{}" could not be validated via an additional '
+                        'security check, DNSSEC, and thus may not be correct.').format(alias) + '\n'
                 msg += _('Do you wish to continue?')
                 if not self.question(msg):
                     return
@@ -1506,7 +1519,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         if fee > confirm_rate * tx.estimated_size() / 1000:
             msg.append(_('Warning') + ': ' + _("The fee for this transaction seems unusually high."))
 
-        if self.wallet.has_password():
+        if self.wallet.has_keystore_encryption():
             msg.append("")
             msg.append(_("Enter your password to proceed"))
             password = self.password_dialog('\n'.join(msg))
@@ -1788,8 +1801,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         return True
 
     def delete_contacts(self, labels):
-        if not self.question(_("Remove %s from your list of contacts?")
-                             % " + ".join(labels)):
+        if not self.question(_("Remove {} from your list of contacts?")
+                             .format(" + ".join(labels))):
             return
         for label in labels:
             self.contacts.pop(label)
@@ -1909,17 +1922,37 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
     def update_buttons_on_seed(self):
         self.seed_button.setVisible(self.wallet.has_seed())
-        self.password_button.setVisible(self.wallet.can_change_password())
+        self.password_button.setVisible(self.wallet.may_have_password())
         self.send_button.setVisible(not self.wallet.is_watching_only())
 
     def change_password_dialog(self):
-        from .password_dialog import ChangePasswordDialog
-        d = ChangePasswordDialog(self, self.wallet)
-        ok, password, new_password, encrypt_file = d.run()
+        from electrum.storage import STO_EV_XPUB_PW
+        if self.wallet.get_available_storage_encryption_version() == STO_EV_XPUB_PW:
+            from .password_dialog import ChangePasswordDialogForHW
+            d = ChangePasswordDialogForHW(self, self.wallet)
+            ok, encrypt_file = d.run()
+            if not ok:
+                return
+
+            try:
+                hw_dev_pw = self.wallet.keystore.get_password_for_storage_encryption()
+            except UserCancelled:
+                return
+            except BaseException as e:
+                traceback.print_exc(file=sys.stderr)
+                self.show_error(str(e))
+                return
+            old_password = hw_dev_pw if self.wallet.has_password() else None
+            new_password = hw_dev_pw if encrypt_file else None
+        else:
+            from .password_dialog import ChangePasswordDialogForSW
+            d = ChangePasswordDialogForSW(self, self.wallet)
+            ok, old_password, new_password, encrypt_file = d.run()
+
         if not ok:
             return
         try:
-            self.wallet.update_password(password, new_password, encrypt_file)
+            self.wallet.update_password(old_password, new_password, encrypt_file)
         except BaseException as e:
             self.show_error(str(e))
             return
@@ -1927,7 +1960,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             traceback.print_exc(file=sys.stdout)
             self.show_error(_('Failed to update password'))
             return
-        msg = _('Password was updated successfully') if new_password else _('Password is disabled, this wallet is not protected')
+        msg = _('Password was updated successfully') if self.wallet.has_password() else _('Password is disabled, this wallet is not protected')
         self.show_message(msg, title=_("Success"))
         self.update_lock_icon()
 
