@@ -28,6 +28,7 @@ from decimal import Decimal
 import traceback
 import urllib
 import threading
+import hmac
 
 from .i18n import _
 
@@ -46,6 +47,12 @@ def normalize_version(v):
     return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
 
 class NotEnoughFunds(Exception): pass
+
+
+class NoDynamicFeeEstimates(Exception):
+    def __str__(self):
+        return _('Dynamic fee estimates not available')
+
 
 class InvalidPassword(Exception):
     def __str__(self):
@@ -70,7 +77,11 @@ class PrintError(object):
         return self.__class__.__name__
 
     def print_error(self, *msg):
+        # only prints with --verbose flag
         print_error("[%s]" % self.diagnostic_name(), *msg)
+
+    def print_stderr(self, *msg):
+        print_stderr("[%s]" % self.diagnostic_name(), *msg)
 
     def print_msg(self, *msg):
         print_msg("[%s]" % self.diagnostic_name(), *msg)
@@ -195,6 +206,13 @@ def json_decode(x):
         return json.loads(x, parse_float=Decimal)
     except:
         return x
+
+
+# taken from Django Source Code
+def constant_time_compare(val1, val2):
+    """Return True if the two strings are equal, False otherwise."""
+    return hmac.compare_digest(to_bytes(val1, 'utf8'), to_bytes(val2, 'utf8'))
+
 
 # decorator that prints execution time
 def profiler(func):
@@ -688,26 +706,3 @@ class QueuePipe:
         for request in requests:
             self.send(request)
 
-
-def check_www_dir(rdir):
-    import urllib, shutil, os
-    if not os.path.exists(rdir):
-        os.mkdir(rdir)
-    index = os.path.join(rdir, 'index.html')
-    if not os.path.exists(index):
-        print_error("copying index.html")
-        src = os.path.join(os.path.dirname(__file__), 'www', 'index.html')
-        shutil.copy(src, index)
-    files = [
-        "https://code.jquery.com/jquery-1.9.1.min.js",
-        "https://raw.githubusercontent.com/davidshimjs/qrcodejs/master/qrcode.js",
-        "https://code.jquery.com/ui/1.10.3/jquery-ui.js",
-        "https://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css"
-    ]
-    for URL in files:
-        path = urllib.parse.urlsplit(URL).path
-        filename = os.path.basename(path)
-        path = os.path.join(rdir, filename)
-        if not os.path.exists(path):
-            print_error("downloading ", URL)
-            urllib.request.urlretrieve(URL, path)
