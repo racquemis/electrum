@@ -484,7 +484,7 @@ def block_explorer_URL(config, kind, item):
     if not kind_str:
         return
     url_parts = [be_tuple[0], kind_str, item]
-    return '/'.join(url_parts)
+    return "/".join(url_parts)
 
 # URL decode
 #_ud = re.compile('%([0-9a-hA-H]{2})', re.MULTILINE)
