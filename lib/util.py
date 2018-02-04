@@ -455,8 +455,6 @@ mainnet_block_explorers = {
                         {'tx': 'tx', 'addr': 'address'}),
     'Blockchair.com': ('https://blockchair.com/bitcoin/',
                         {'tx': 'transaction', 'addr': 'address'}),
-    'blockonomics.co': ('https://www.blockonomics.co/',
-                        {'tx': 'api/tx?txid=', 'addr': '#/search?q='}),
     'system default': ('blockchain:',
                         {'tx': 'tx', 'addr': 'address'}),
 }
