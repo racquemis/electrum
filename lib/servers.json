@@ -10,21 +10,5 @@
         "t": "50001",
         "s": "50002",
         "version": "1.1"
-    },
-    "mnx.privatedns.org": {
-        "pruning": "-",
-        "s": "50002",
-        "version": "1.1"
-    },
-    "pi3.privatedns.org": {
-        "pruning": "-",
-        "s": "50002",
-        "version": "1.1"
-    },
-    "eu.minexpool.nl": {
-        "pruning": "-",
-        "t": "50001",
-        "s": "50002",
-        "version": "1.1"
     }
 }
