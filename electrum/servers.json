@@ -1,0 +1,32 @@
+{
+    "elex01-ams.turinex.eu": {
+        "pruning": "-",
+        "t": "50001",
+        "s": "50002",
+        "version": "1.4"
+    },
+    "electrumx.xpresit.net": {
+        "pruning": "-",
+        "t": "50001",
+        "s": "50002",
+        "version": "1.4"
+    },
+    "electrumx.minexpool.nl": {
+        "pruning": "-",
+        "t": "50001",
+        "s": "50002",
+        "version": "1.4"
+    },
+    "95.85.35.152": {
+        "pruning": "-",
+        "t": "50001",
+        "s": "50002",
+        "version": "1.4"
+    },
+    "electrumx.t28.net": {
+        "pruning": "-",
+        "t": "50001",
+        "s": "50002",
+        "version": "1.4"
+    }
+}

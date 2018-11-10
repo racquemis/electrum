@@ -1,10 +1,10 @@
-# If you want electrum to appear in a linux app launcher ("start menu"), install this by doing:
+# If you want Electrum to appear in a Linux app launcher ("start menu"), install this by doing:
 # sudo desktop-file-install electrum.desktop
 
 [Desktop Entry]
 Comment=Lightweight Minexcoin Client
-Exec=electrum %u
-GenericName[en_US]=Bitcoin Wallet
+Exec=sh -c "PATH=\"\\$HOME/.local/bin:\\$PATH\"; electrum %u"
+GenericName[en_US]=Minexcoin Wallet
 GenericName=Minexcoin Wallet
 Icon=electrum
 Name[en_US]=Electrum Minexcoin Wallet
@@ -14,4 +14,8 @@ StartupNotify=false
 Terminal=false
 Type=Application
 MimeType=x-scheme-handler/bitcoin;
+Actions=Testnet;
 
+[Desktop Action Testnet]
+Exec=sh -c "PATH=\"\\$HOME/.local/bin:\\$PATH\"; electrum --testnet %u"
+Name=Testnet mode
