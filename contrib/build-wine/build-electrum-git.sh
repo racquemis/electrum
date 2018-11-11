@@ -20,6 +20,8 @@ mkdir -p tmp
 cd tmp
 
 pushd $WINEPREFIX/drive_c/electrum-mnx
+git pull
+git checkout master
 
 # Load electrum-icons and electrum-locale for this release
 git submodule init
@@ -44,7 +46,7 @@ find -exec touch -d '2000-11-11T11:11:11+00:00' {} +
 popd
 
 cp $WINEPREFIX/drive_c/electrum-mnx/LICENCE .
-cp $WINEPREFIX/drive_c/electrum-mnx/contrib/deterministic-build/electrum-icons/icons_rc.py $WINEPREFIX/drive_c/electrum/electrum/gui/qt/
+cp $WINEPREFIX/drive_c/electrum-mnx/contrib/deterministic-build/electrum-icons/icons_rc.py $WINEPREFIX/drive_c/electrum-mnx/electrum/gui/qt/
 
 # Install frozen dependencies
 $PYTHON -m pip install -r ../../deterministic-build/requirements.txt
