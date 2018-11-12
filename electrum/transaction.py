@@ -763,6 +763,17 @@ class Transaction:
         txin['witness'] = None    # force re-serialization
         self.raw = None
 
+    def add_inputs_info(self, wallet):
+        if self.is_complete():
+            return
+        for txin in self.inputs():
+            wallet.add_input_info(txin)
+
+    def remove_signatures(self):
+        for txin in self.inputs():
+            txin['signatures'] = [None] * len(txin['signatures'])
+        assert not self.is_complete()
+
     def deserialize(self, force_full_parse=False):
         if self.raw is None:
             return
@@ -788,7 +799,8 @@ class Transaction:
         return self
 
     @classmethod
-    def pay_script(self, output_type, addr):
+    def pay_script(self, output_type, addr: str) -> str:
+        """Returns scriptPubKey in hex form."""
         if output_type == TYPE_SCRIPT:
             return addr
         elif output_type == TYPE_ADDRESS:
@@ -852,7 +864,7 @@ class Transaction:
     @classmethod
     def serialize_witness(self, txin, estimate_size=False):
         _type = txin['type']
-        if not self.is_segwit_input(txin) and not self.is_input_value_needed(txin):
+        if not self.is_segwit_input(txin) and not txin['type'] == 'address':
             return '00'
         if _type == 'coinbase':
             return txin['witness']
@@ -889,10 +901,6 @@ class Transaction:
     @classmethod
     def is_segwit_inputtype(cls, txin_type):
         return txin_type in ('p2wpkh', 'p2wpkh-p2sh', 'p2wsh', 'p2wsh-p2sh')
-
-    @classmethod
-    def is_input_value_needed(cls, txin):
-        return cls.is_segwit_input(txin) or txin['type'] == 'address'
 
     @classmethod
     def guess_txintype_from_address(cls, addr):
@@ -1025,10 +1033,9 @@ class Transaction:
         if outputs:
             self._outputs.sort(key = lambda o: (o.value, self.pay_script(o.type, o.address)))
 
-    def serialize_output(self, output):
-        output_type, addr, amount = output
-        s = int_to_hex(amount, 8)
-        script = self.pay_script(output_type, addr)
+    def serialize_output(self, output: TxOutput) -> str:
+        s = int_to_hex(output.value, 8)
+        script = self.pay_script(output.type, output.address)
         s += var_int(len(script)//2)
         s += script
         return s
@@ -1199,8 +1206,6 @@ class Transaction:
         return s, r
 
     def is_complete(self):
-        if not self.is_partial_originally:
-            return True
         s, r = self.signature_count()
         return r == s
 

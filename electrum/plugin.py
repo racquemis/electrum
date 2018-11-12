@@ -26,13 +26,14 @@ import traceback
 import sys
 import os
 import pkgutil
+import importlib.util
 import time
 import threading
 from typing import NamedTuple, Any, Union, TYPE_CHECKING, Optional
 
 from .i18n import _
 from .util import (profiler, PrintError, DaemonThread, UserCancelled,
-                   ThreadJob, print_error)
+                   ThreadJob, print_error, UserFacingException)
 from . import bip32
 from . import plugins
 from .simple_config import SimpleConfig
@@ -66,9 +67,16 @@ class Plugins(DaemonThread):
 
     def load_plugins(self):
         for loader, name, ispkg in pkgutil.iter_modules([self.pkgpath]):
-            mod = pkgutil.find_loader('electrum.plugins.' + name)
-            m = mod.load_module()
-            d = m.__dict__
+            full_name = f'electrum.plugins.{name}'
+            spec = importlib.util.find_spec(full_name)
+            if spec is None:  # pkgutil found it but importlib can't ?!
+                raise Exception(f"Error pre-loading {full_name}: no spec")
+            try:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+            except Exception as e:
+                raise Exception(f"Error pre-loading {full_name}: {repr(e)}") from e
+            d = module.__dict__
             gui_good = self.gui_name in d.get('available_for', [])
             if not gui_good:
                 continue
@@ -95,16 +103,17 @@ class Plugins(DaemonThread):
     def load_plugin(self, name):
         if name in self.plugins:
             return self.plugins[name]
-        full_name = 'electrum.plugins.' + name + '.' + self.gui_name
-        loader = pkgutil.find_loader(full_name)
-        if not loader:
+        full_name = f'electrum.plugins.{name}.{self.gui_name}'
+        spec = importlib.util.find_spec(full_name)
+        if spec is None:
             raise RuntimeError("%s implementation for %s plugin not found"
                                % (self.gui_name, name))
         try:
-            p = loader.load_module()
-            plugin = p.Plugin(self, self.config, name)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            plugin = module.Plugin(self, self.config, name)
         except Exception as e:
-            raise Exception(f"Error loading {name} plugin: {e}") from e
+            raise Exception(f"Error loading {name} plugin: {repr(e)}") from e
         self.add_jobs(plugin.thread_jobs())
         self.plugins[name] = plugin
         self.print_error("loaded", name)
@@ -485,7 +494,7 @@ class DeviceMgr(ThreadJob, PrintError):
               'its seed (and passphrase, if any).  Otherwise all bitcoins you '
               'receive will be unspendable.').format(plugin.device))
 
-    def unpaired_device_infos(self, handler, plugin, devices=None):
+    def unpaired_device_infos(self, handler, plugin: 'HW_PluginBase', devices=None):
         '''Returns a list of DeviceInfo objects: one for each connected,
         unpaired device accepted by the plugin.'''
         if not plugin.libraries_available:
@@ -498,7 +507,13 @@ class DeviceMgr(ThreadJob, PrintError):
         for device in devices:
             if device.product_key not in plugin.DEVICE_IDS:
                 continue
-            client = self.create_client(device, handler, plugin)
+            try:
+                client = self.create_client(device, handler, plugin)
+            except UserFacingException:
+                raise
+            except BaseException as e:
+                self.print_error(f'failed to create client for {plugin.name} at {device.path}: {repr(e)}')
+                continue
             if not client:
                 continue
             infos.append(DeviceInfo(device, client.label(), client.is_initialized()))
