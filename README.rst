@@ -1,3 +1,5 @@
+NO LONGER MAINTAINED
+
 Electrum-mnx - Lightweight Minexcoin client
 =====================================
 
